@@ -1,11 +1,13 @@
 import requests
 from xml.etree import ElementTree
 import webbrowser
-import os
+import sys, subprocess
+
+OPENER = "open" if sys.platform == "darwin" else "xdg-open"
 
 def first_page():
     url = 'http://api.digitalpodcast.com/v2r/search/'
-    query = input("Enter search terms:\t")
+    query = input("Enter search terms: ")
     data = {'appid':'7df91a58d793790699ccedf7c3f660b2',
     'keywords':query}
     response = requests.get(url, params=data)
@@ -23,6 +25,19 @@ def first_page():
     choice = input("Which do you want?\t")
     return urls[int(choice)-1]
 
+
+def pick(shows, start=0, end=25):
+    page = shows[start:end]
+    print(f"Shows between {start + 1} and {end}")
+    for i in range(len(page)):
+        print("{0}:    {1}".format(i+1, page[i]['title']))
+    var = input("Which do you want to listen to?\t")
+    if var.lower() not in ('n', 'p') and not (start < int(var) <= end):
+        print(f"Choice {var} invalid. Must be n, p or above {start} and below {end}. Try again.\n")
+        return pick(start, end, shows)
+    return var
+
+
 def main():
     url = first_page()
     response = requests.get(url)
@@ -32,13 +47,22 @@ def main():
         show ={'url':item.find('enclosure').get('url'),
         'title':item.find('title').text}
         shows.append(show)
-    shows = shows[:25]
-    print("Here are the first 25 shows. ")
-    for i in range(len(shows)):
-        print("{0}:    {1}".format(i+1, shows[i]['title']))
-    var = input("Which do you want to listen to?\t")
-    os.startfile(shows[int(var)-1]['url'])
+    print("Press N for the next page, P for the previous.")
+    start = 0
+    end = 25
+    var = pick(shows, start=start, end=end)
+    while var.lower() in ('n', 'p'):
+        if var.lower() == 'n':
+            start += 25
+            end += 25
+            var = pick(shows, start=start, end=end)
+        elif var.lower() == 'p':
+            start = min(0, start - 25)
+            end = min(25, end - 25)
+            var = pick(shows, start=start, end=end)
+    subprocess.call([OPENER, shows[int(var)-1]['url']])
     # They are all RSS 2.0 NS-es !
+
 
 if __name__ == '__main__':
     main()
